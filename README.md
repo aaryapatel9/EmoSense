@@ -2,8 +2,6 @@
 
 # 🎭 Emotion Detection
 
-**Fine-tuned BERT emotion classification for text, with CLI inference, a Flask API, a browser UI, EDA tools, and a training pipeline.**
-
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![Hugging Face](https://img.shields.io/badge/Transformers-4.40%2B-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)
@@ -14,7 +12,7 @@
 
 ## Overview
 
-Emotion Detection is a Python NLP project that predicts one or more emotions from text. It uses a fine-tuned `bert-base-uncased` model for multi-label classification over the 28-label GoEmotions taxonomy.
+Emotion Detection is a Machine Learning NLP project that predicts one or more emotions from text. It uses a fine-tuned `bert-base-uncased` model for multi-label classification over the 28-label GoEmotions taxonomy.
 
 The project is useful when you need to:
 
