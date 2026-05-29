@@ -172,13 +172,33 @@ Optional Streamlit dependency:
 pip install streamlit
 ```
 
-### 3. Run a Prediction
+### 3. Download the Dataset
+
+The dataset is not included in this repository. Download the GoEmotions dataset from Kaggle:
+
+[GoEmotions on Kaggle](https://www.kaggle.com/datasets/debarshichanda/goemotions)
+
+After downloading and extracting it, place the CSV file at:
+
+```text
+data/go_emotions_dataset.csv
+```
+
+This is the default path used by [train.py](train.py) and [explore_data.py](explore_data.py). If your downloaded file has a different name, either rename it to `go_emotions_dataset.csv` or pass the path explicitly with `--csv`.
+
+Optional Kaggle CLI example:
+
+```bash
+kaggle datasets download -d debarshichanda/goemotions -p data --unzip
+```
+
+### 4. Run a Prediction
 
 ```bash
 python inference.py --model_dir ./outputs/best_model --text "I can't believe how amazing this is!"
 ```
 
-### 4. Start the Web App
+### 5. Start the Web App
 
 ```bash
 python api.py --model_dir ./outputs/best_model --port 5000
