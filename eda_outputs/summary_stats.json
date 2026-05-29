@@ -1,0 +1,8 @@
+{
+  "total_rows": 207814,
+  "multi_label_rows": 35994,
+  "multi_label_pct": 17.32,
+  "most_common_emotion": "neutral",
+  "rarest_emotion": "grief",
+  "neutral_pct": 26.61
+}

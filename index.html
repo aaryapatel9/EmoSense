@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EmoSense — Emotion Detection</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── Reset & Variables ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --surface2:  #1a1a24;
+      --border:    rgba(255,255,255,0.07);
+      --accent:    #7c6aff;
+      --accent2:   #ff6b6b;
+      --text:      #f0eeff;
+      --muted:     #6b6880;
+      --glow:      rgba(124, 106, 255, 0.25);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ──────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Noise texture overlay ─────────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 64px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(42px, 8vw, 72px);
+      font-weight: 800;
+      line-height: 1.0;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #fff 30%, var(--accent) 70%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      line-height: 1.7;
+    }
+
+    .subtitle strong { color: var(--accent); font-weight: 500; }
+
+    /* ── Main card ─────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 24px;
+      animation: fadeUp 0.7s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.5;
+    }
+
+    /* ── Textarea ──────────────────────────────────────────────── */
+    .input-label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      padding: 16px 20px;
+      resize: vertical;
+      min-height: 120px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    textarea::placeholder { color: var(--muted); }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--glow);
+    }
+
+    /* ── Controls row ──────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .threshold-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .threshold-group label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 3px;
+      background: var(--surface2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--glow);
+      transition: transform 0.15s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+    .threshold-val {
+      font-size: 13px;
+      color: var(--accent);
+      width: 32px;
+      text-align: right;
+    }
+
+    /* ── Analyse button ─────────────────────────────────────────── */
+    button#analyseBtn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 28px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      white-space: nowrap;
+      box-shadow: 0 0 24px var(--glow);
+    }
+
+    button#analyseBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 32px var(--glow);
+      background: #9b8dff;
+    }
+
+    button#analyseBtn:active { transform: translateY(0); }
+
+    button#analyseBtn.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    /* ── Examples ──────────────────────────────────────────────── */
+    .examples-label {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .example-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 14px;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .example-chip:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    /* ── Results card ──────────────────────────────────────────── */
+    #results {
+      display: none;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .detected-header {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .emotion-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .emotion-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border-radius: 100px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      border: 1px solid;
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    .emotion-pill .pill-emoji { font-size: 16px; }
+
+    /* ── Score bars ────────────────────────────────────────────── */
+    .scores-header {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      animation: fadeRight 0.4s ease both;
+    }
+
+    .score-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 160px;
+      font-size: 12px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .score-label.active { color: var(--text); font-weight: 500; }
+    .score-label .s-emoji { font-size: 14px; }
+
+    .bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      width: 0;
+    }
+
+    .score-pct {
+      font-size: 11px;
+      color: var(--muted);
+      width: 40px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .score-pct.active { color: var(--text); }
+
+    /* ── Divider ───────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 28px 0;
+    }
+
+
+
+    /* ── Error state ───────────────────────────────────────────── */
+    .error-box {
+      background: rgba(220, 20, 60, 0.08);
+      border: 1px solid rgba(220, 20, 60, 0.3);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 12px;
+      color: #ff6b6b;
+      display: none;
+      margin-top: 12px;
+    }
+
+    /* ── Loading spinner ───────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+
+
+    /* ── Animations ────────────────────────────────────────────── */
+    @keyframes fadeDown  { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp    { from { opacity:0; transform:translateY(20px);  } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeRight { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes popIn     { from { opacity:0; transform:scale(0.7);        } to { opacity:1; transform:scale(1);   } }
+    @keyframes spin      { to   { transform: rotate(360deg); } }
+    @keyframes pulse     { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .wrapper { padding: 40px 16px 80px; }
+      .controls { flex-direction: column; align-items: stretch; }
+      button#analyseBtn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <h1>EmoSense</h1>
+    <p class="subtitle">
+      Fine-tuned <strong>BERT</strong> model detecting <strong>28 fine-grained emotions</strong><br>
+      from any text — multi-label, real-time, no cloud required.
+    </p>
+  </header>
+
+  <!-- Input card -->
+  <div class="card" style="animation-delay:0.1s">
+    <span class="input-label">✦ Input Text</span>
+    <textarea id="inputText" placeholder="Type or paste any text to analyse its emotions…" rows="4"></textarea>
+
+    <div class="controls">
+      <div class="threshold-group">
+        <label>Threshold</label>
+        <input type="range" id="threshold" min="0.1" max="0.9" step="0.05" value="0.5"/>
+        <span class="threshold-val" id="thresholdVal">0.5</span>
+      </div>
+      <button id="analyseBtn" onclick="analyse()">Analyse →</button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- Examples card -->
+  <div class="card" style="animation-delay:0.2s">
+    <span class="examples-label">✦ Try an example</span>
+    <div class="examples" id="examples"></div>
+  </div>
+
+  <!-- Results card -->
+  <div class="card" id="results" style="animation-delay:0s">
+    <p class="detected-header">✦ Detected Emotions</p>
+    <div class="emotion-pills" id="emotionPills"></div>
+    <div class="divider"></div>
+    <p class="scores-header">✦ Top-10 Probability Scores</p>
+    <div id="scoreBars"></div>
+  </div>
+
+
+
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────
+  const API = "http://localhost:5000";
+
+  const EXAMPLES = [
+    "I can't believe how amazing this concert was!",
+    "I'm so frustrated with myself today.",
+    "Thanks so much — I really appreciate your help.",
+    "I have no idea what to do. Everything feels uncertain.",
+    "My dog passed away. I miss him so much.",
+    "Wow, I didn't see that coming at all!",
+    "I'm so proud of what we've built together.",
+    "This is disgusting. I can't even look at it.",
+  ];
+
+  const EMOJI = {
+    admiration:"🤩", amusement:"😄", anger:"😠", annoyance:"😤",
+    approval:"👍", caring:"🤗", confusion:"😕", curiosity:"🤔",
+    desire:"😍", disappointment:"😞", disapproval:"👎", disgust:"🤢",
+    embarrassment:"😳", excitement:"🎉", fear:"😨", gratitude:"🙏",
+    grief:"😢", joy:"😊", love:"❤️", nervousness:"😰",
+    optimism:"🌟", pride:"🦁", realization:"💡", relief:"😌",
+    remorse:"😔", sadness:"😭", surprise:"😲", neutral:"😐",
+  };
+
+  // ── Init examples ────────────────────────────────────────────────────
+  const examplesEl = document.getElementById("examples");
+  EXAMPLES.forEach(ex => {
+    const chip = document.createElement("button");
+    chip.className = "example-chip";
+    chip.textContent = ex.length > 40 ? ex.slice(0, 40) + "…" : ex;
+    chip.title = ex;
+    chip.onclick = () => {
+      document.getElementById("inputText").value = ex;
+      analyse();
+    };
+    examplesEl.appendChild(chip);
+  });
+
+  // ── Threshold slider ─────────────────────────────────────────────────
+  const slider = document.getElementById("threshold");
+  const valEl  = document.getElementById("thresholdVal");
+  slider.oninput = () => { valEl.textContent = parseFloat(slider.value).toFixed(2); };
+
+
+
+  // ── Analyse ──────────────────────────────────────────────────────────
+  async function analyse() {
+    const text      = document.getElementById("inputText").value.trim();
+    const threshold = parseFloat(document.getElementById("threshold").value);
+    const btn       = document.getElementById("analyseBtn");
+    const errorBox  = document.getElementById("errorBox");
+
+    errorBox.style.display = "none";
+    if (!text) { showError("Please enter some text first."); return; }
+
+    // Loading state
+    btn.classList.add("loading");
+    btn.innerHTML = '<span class="spinner"></span>Analysing…';
+
+    try {
+      const res = await fetch(`${API}/predict`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ text, threshold }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Server error");
+      }
+
+      const data = await res.json();
+      renderResults(data);
+
+    } catch (e) {
+      showError(e.message.includes("fetch") 
+        ? "Cannot reach server. Make sure api.py is running: python api.py --model_dir ./outputs/best_model"
+        : e.message
+      );
+    } finally {
+      btn.classList.remove("loading");
+      btn.innerHTML = "Analyse →";
+    }
+  }
+
+  // ── Render results ────────────────────────────────────────────────────
+  function renderResults(data) {
+    const resultsEl = document.getElementById("results");
+    const pillsEl   = document.getElementById("emotionPills");
+    const barsEl    = document.getElementById("scoreBars");
+
+    // Emotion pills
+    pillsEl.innerHTML = "";
+    data.emotions.forEach((emo, i) => {
+      const color = data.colors[emo] || "#7c6aff";
+      const pill  = document.createElement("div");
+      pill.className = "emotion-pill";
+      pill.style.cssText = `
+        background: ${color}18;
+        border-color: ${color}55;
+        color: ${color};
+        animation-delay: ${i * 0.07}s;
+      `;
+      pill.innerHTML = `<span class="pill-emoji">${EMOJI[emo] || "💬"}</span> ${emo}`;
+      pillsEl.appendChild(pill);
+    });
+
+    // Score bars — top 10
+    barsEl.innerHTML = "";
+    const sorted = Object.entries(data.scores)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    sorted.forEach(([emo, score], i) => {
+      const isActive = data.emotions.includes(emo);
+      const color    = data.colors[emo] || "#7c6aff";
+      const pct      = (score * 100).toFixed(1);
+
+      const row = document.createElement("div");
+      row.className = "score-row";
+      row.style.animationDelay = `${i * 0.05}s`;
+      row.innerHTML = `
+        <div class="score-label ${isActive ? 'active' : ''}">
+          <span class="s-emoji">${EMOJI[emo] || ''}</span>
+          ${emo}
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" data-pct="${pct}"
+               style="background: ${isActive ? color : color + '55'}; width:0%"></div>
+        </div>
+        <span class="score-pct ${isActive ? 'active' : ''}">${pct}%</span>
+      `;
+      barsEl.appendChild(row);
+    });
+
+    // Show results
+    resultsEl.style.display = "block";
+
+    // Animate bars after paint
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.querySelectorAll(".bar-fill").forEach(el => {
+          el.style.width = el.dataset.pct + "%";
+        });
+      });
+    });
+
+    resultsEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // ── Error ─────────────────────────────────────────────────────────────
+  function showError(msg) {
+    const box = document.getElementById("errorBox");
+    box.textContent = "⚠ " + msg;
+    box.style.display = "block";
+  }
+
+  // ── Enter key submit ──────────────────────────────────────────────────
+  document.getElementById("inputText").addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.ctrlKey) analyse();
+  });
+</script>
+</body>
+</html>
