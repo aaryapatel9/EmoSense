@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎭 Emotion Detection
+# 🎭 EmoSense - Emotion Detection Model
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
